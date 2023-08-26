@@ -47,25 +47,47 @@ def process_link(link):
             image_containers = soup.find_all('div', class_='tooltip')
 
             with ThreadPoolExecutor() as executor:
+                futures = []
                 for idx, container in enumerate(image_containers):
                     img_tag = container.find('img', class_='imgtooltip')
                     if img_tag:
                         img_src = img_tag['src']
                         img_src = img_src.replace('/t/', '/i/')
-                        executor.submit(download_image, img_src, title_folder, idx)
+                        futures.append(executor.submit(download_image, img_src, title_folder, idx))
+
+                for future in futures:
+                    image_filename = future.result()
+                    if image_filename:
+                        with open(os.path.join(title_folder, 'completedDownloads.txt'), 'a+') as f:
+                            f.seek(0)
+                            links_in_file = f.read().splitlines()
+                            if link not in links_in_file:
+                                f.write(link + '\n')
 
             print(f"Downloaded {len(image_containers)} images in '{title}'")
+
+            with open(os.path.join(title_folder, 'details.txt'), 'w') as f:
+                for container in image_containers:
+                    img_tag = container.find('img', class_='imgtooltip')
+                    if img_tag:
+                        img_src = img_tag['src']
+                        f.write(img_src + '\n')
+
         else:
             print("Title element not found on the page.")
     except requests.exceptions.Timeout:
         print(f"Connection timed out for link: {link}")
 
 def main():
-    with open('D:\\cool python projects\\imx_scraper\\links.txt', 'r') as file:
+    with open('D:\cool python projects\imx_scraper\links.txt', 'r') as file:
         links = file.read().splitlines()
 
-    with ThreadPoolExecutor() as executor:
-        executor.map(process_link, links)
+    for link in links:
+        with open('D:\cool python projects\imx_scraper\completedDownloads.txt', 'r') as file:
+            completed_links = file.read().splitlines()
+        
+        if link not in completed_links:
+            process_link(link)
 
     print("All images downloaded and saved.")
 
